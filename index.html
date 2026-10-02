@@ -229,14 +229,20 @@ function tit(){
 }
 function buatUtter(teks){
   var u = new SpeechSynthesisUtterance(teks);
-  u.lang = "id-ID"; u.rate = 0.95;
-  var v = speechSynthesis.getVoices().filter(function(x){
-    return x.lang && x.lang.toLowerCase().indexOf("id") === 0;
-  })[0];
-  if(v) u.voice = v;
+  u.lang = "id-ID";
+  u.rate = 0.9;      // sedikit lebih lambat = lebih jelas
+  u.pitch = 1.1;     // nada sedikit lebih tinggi = lebih menembus keramaian
+  u.volume = 1;      // maksimum
+
+  var daftar = speechSynthesis.getVoices().filter(function(x){
+    return x.lang && x.lang.toLowerCase().replace("_","-").indexOf("id") === 0;
+  });
+  // utamakan suara online (biasanya lebih keras dan jernih), baru suara lokal
+  daftar.sort(function(a,b){ return (a.localService?1:0) - (b.localService?1:0); });
+  if(daftar[0]) u.voice = daftar[0];
   return u;
 }
-function bicara(teks){
+ function bicara(teks){
   if(!teks || !("speechSynthesis" in window)) return;
   speechSynthesis.cancel();
   speechSynthesis.speak(buatUtter(teks));
