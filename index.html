@@ -596,6 +596,19 @@ function setLokal(nama, st){
 
 function kirimHadir(nama){
   tit();
+
+  // sudah tercatat hari ini? langsung beri tahu, tidak perlu ke server
+  var sdh = "";
+  S.siswa.forEach(function(s){ if(s.nama === nama && s.status) sdh = s.status; });
+  if(sdh){
+    logScan("ℹ️ " + nama + " sudah tercatat " + sdh.toLowerCase() + " hari ini");
+    bicaraAntri(nama + " sudah tercatat " + sdh.toLowerCase() + " hari ini.");
+    return;
+  }
+
+  // ucapkan sekarang juga, simpan ke server di belakang
+  bicaraAntri(nama + " hadir.");
+
   api("simpanAbsen", { token:S.token, records:[{ nama:nama, status:"Hadir" }], skipJikaAda:true })
     .then(function(r){
       if(r.status === "success"){
@@ -604,21 +617,22 @@ function kirimHadir(nama){
         setLokal(nama, "Hadir");
         S.lastUcapan = susunUcapan(r);
         $("btnUlang").style.display = "block";
-        bicaraAntri(S.lastUcapan);
       } else if(r.status === "warning"){
         var st = (r.sudah && r.sudah[0]) ? String(r.sudah[0].status).toLowerCase() : "absen";
         logScan("ℹ️ " + nama + " sudah tercatat " + st + " hari ini");
         if(r.sudah && r.sudah[0]) setLokal(nama, r.sudah[0].status);
-        bicaraAntri(nama + " sudah tercatat " + st + " hari ini.");
+        bicaraAntri("Koreksi, " + nama + " sudah tercatat " + st + " hari ini.");
       } else {
         S.selesai[nama] = false; S.hitung[nama] = 0;
         if(String(r.message).indexOf("Sesi habis") >= 0){ logout(r.message); return; }
         say($("camMsg"), r.message, "err");
+        bicaraAntri("Gagal menyimpan absen " + nama + ".");
       }
     })
     .catch(function(e){
       S.selesai[nama] = false; S.hitung[nama] = 0;
       say($("camMsg"), galat(e), "err");
+      bicaraAntri("Gagal menyimpan absen " + nama + ".");
     });
 }
 
