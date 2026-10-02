@@ -152,32 +152,44 @@ function initAudio(){
   }catch(e){}
 }
 
-// bunyi "tit-tit" nyaring (gelombang kotak + kompresor)
+// bunyi "tit-tit" sangat nyaring: dua gelombang ditumpuk + penguat + kompresor
 function tit(){
   try{
     if(!audioCtx) return;
     if(audioCtx.state === "suspended") audioCtx.resume();
 
     var t = audioCtx.currentTime;
+
+    var master = audioCtx.createGain();
+    master.gain.value = 2.5;                 // penguat akhir (1 = normal, makin besar makin keras)
+
     var comp = audioCtx.createDynamicsCompressor();
+    comp.threshold.value = -30;
+    comp.knee.value = 0;
+    comp.ratio.value = 20;
+    comp.attack.value = 0.001;
+    comp.release.value = 0.05;
+
+    master.connect(comp);
     comp.connect(audioCtx.destination);
 
-    [0, 0.16].forEach(function(jeda, i){
-      var o = audioCtx.createOscillator();
-      var g = audioCtx.createGain();
-      o.type = "square";
-      o.frequency.value = i === 0 ? 1800 : 2400;   // nada (Hz)
-      var mulai = t + jeda;
-      g.gain.setValueAtTime(0.0001, mulai);
-      g.gain.exponentialRampToValueAtTime(1.0, mulai + 0.01);
-      g.gain.setValueAtTime(1.0, mulai + 0.09);
-      g.gain.exponentialRampToValueAtTime(0.0001, mulai + 0.13);
-      o.connect(g); g.connect(comp);
-      o.start(mulai); o.stop(mulai + 0.14);
+    [[2000, 0], [2600, 0.19]].forEach(function(n){
+      var f = n[0], mulai = t + n[1];
+      ["square", "sawtooth"].forEach(function(jenis){
+        var o = audioCtx.createOscillator();
+        var g = audioCtx.createGain();
+        o.type = jenis;
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, mulai);
+        g.gain.exponentialRampToValueAtTime(1.0, mulai + 0.005);
+        g.gain.setValueAtTime(1.0, mulai + 0.12);
+        g.gain.exponentialRampToValueAtTime(0.0001, mulai + 0.16);
+        o.connect(g); g.connect(master);
+        o.start(mulai); o.stop(mulai + 0.17);
+      });
     });
   }catch(e){}
 }
-
 function unlockSuara(){
   initAudio();
   if(!("speechSynthesis" in window)) return;
