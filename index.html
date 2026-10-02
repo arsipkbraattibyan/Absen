@@ -13,6 +13,7 @@
   .head h2{margin:0 0 6px}
   h2,h3{margin-top:0}
   input[type=text],input[type=password]{width:100%;padding:12px;margin-bottom:12px;border:1px solid #ccc;border-radius:6px;font-size:15px}
+  input[type=month]{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:15px}
   button{width:100%;padding:13px;border:0;border-radius:8px;background:#2196F3;color:#fff;font-size:15px;margin-top:8px;cursor:pointer}
   button:disabled{background:#999}
   button.red{background:#e53935} button.green{background:#43a047} button.gray{background:#757575}
@@ -59,6 +60,18 @@
     <div id="scanLog"></div>
   </div>
 
+  <!-- REKAP SISWA -->
+  <div id="vRekap" class="card hidden">
+    <h3>📊 Rekap Siswa</h3>
+    <select id="rkSiswa" style="width:100%;margin-bottom:8px"></select>
+    <input type="month" id="rkBulan">
+    <button onclick="muatRekap()">Tampilkan</button>
+    <div id="rkMsg" class="msg"></div>
+    <div id="rkRingkas" style="margin-top:10px;font-size:15px;font-weight:bold"></div>
+    <div id="rkList" style="margin-top:8px"></div>
+    <button class="gray" onclick="show('vDash')">Kembali</button>
+  </div>
+
   <!-- DASHBOARD -->
   <div id="vDash" class="hidden">
     <div class="head">
@@ -69,6 +82,7 @@
     <div class="card">
       <h3>Absensi Siswa</h3>
       <button class="green" onclick="mulaiScan()">📸 Scan Wajah Murid</button>
+      <button onclick="bukaRekap()">📊 Rekap Siswa</button>
       <div class="bar" style="margin-top:8px">
         <button class="gray" onclick="setSemua('Hadir')">Semua Hadir</button>
         <button class="gray" onclick="muatSiswa()">Muat Ulang</button>
@@ -85,9 +99,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 <script>
-// ===== ISI DENGAN URL WEB APP APPS SCRIPT ANDA (yang berakhiran /exec) =====
+// ===== URL WEB APP APPS SCRIPT (berakhiran /exec) =====
 var API_URL = "https://script.google.com/macros/s/AKfycbzyknrk3xLIRahq-A4TqlqCFW-y6fd_8VjXQBIPYcnG1jvHIWgVLNX_rCheCd88hwGR/exec";
-// ==========================================================================
+// ======================================================
 
 var MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/";
 var THRESHOLD = 0.5;   // makin kecil makin ketat (0.4 - 0.6)
@@ -99,7 +113,7 @@ var $ = function(id){ return document.getElementById(id); };
 var wait = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
 
 function show(id){
-  ["vLogin","vCam","vDash"].forEach(function(v){ $(v).classList.add("hidden"); });
+  ["vLogin","vCam","vDash","vRekap"].forEach(function(v){ $(v).classList.add("hidden"); });
   $(id).classList.remove("hidden");
 }
 function say(el, text, cls){ el.className = "msg " + (cls||""); el.textContent = text; }
@@ -138,20 +152,29 @@ function initAudio(){
   }catch(e){}
 }
 
-// bunyi "tit" pendek
+// bunyi "tit-tit" nyaring (gelombang kotak + kompresor)
 function tit(){
   try{
     if(!audioCtx) return;
-    var o = audioCtx.createOscillator();
-    var g = audioCtx.createGain();
+    if(audioCtx.state === "suspended") audioCtx.resume();
+
     var t = audioCtx.currentTime;
-    o.type = "sine";
-    o.frequency.value = 1200;            // nada: naikkan = lebih tinggi
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
-    o.connect(g); g.connect(audioCtx.destination);
-    o.start(t); o.stop(t + 0.16);
+    var comp = audioCtx.createDynamicsCompressor();
+    comp.connect(audioCtx.destination);
+
+    [0, 0.16].forEach(function(jeda, i){
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      o.type = "square";
+      o.frequency.value = i === 0 ? 1800 : 2400;   // nada (Hz)
+      var mulai = t + jeda;
+      g.gain.setValueAtTime(0.0001, mulai);
+      g.gain.exponentialRampToValueAtTime(1.0, mulai + 0.01);
+      g.gain.setValueAtTime(1.0, mulai + 0.09);
+      g.gain.exponentialRampToValueAtTime(0.0001, mulai + 0.13);
+      o.connect(g); g.connect(comp);
+      o.start(mulai); o.stop(mulai + 0.14);
+    });
   }catch(e){}
 }
 
@@ -199,6 +222,7 @@ function susunUcapan(r){
 // LOGIN
 // ==========================================
 function doLogin(){
+  unlockSuara();
   var u = $("user").value.trim(), p = $("pass").value.trim();
   if(!u || !p){ say($("loginMsg"),"Username dan Password wajib diisi","err"); return; }
   if(API_URL.indexOf("GANTI_") === 0){ say($("loginMsg"),"API_URL belum diisi di index.html","err"); return; }
@@ -313,6 +337,52 @@ function simpanManual(){
       else say($("dashMsg"), r.message, "err");
     })
     .catch(function(e){ say($("dashMsg"), galat(e), "err"); });
+}
+
+// ==========================================
+// REKAP SISWA
+// ==========================================
+function bukaRekap(){
+  if(!S.siswa.length){ say($("dashMsg"),"Daftar siswa belum termuat.","err"); return; }
+  var sel = $("rkSiswa"); sel.innerHTML = "";
+  S.siswa.forEach(function(s){
+    var op = document.createElement("option");
+    op.value = s.nama; op.textContent = s.nama; sel.appendChild(op);
+  });
+  var d = new Date();
+  $("rkBulan").value = d.getFullYear() + "-" + ("0" + (d.getMonth()+1)).slice(-2);
+  $("rkRingkas").textContent = ""; $("rkList").innerHTML = "";
+  say($("rkMsg"),"","");
+  show("vRekap");
+  muatRekap();
+}
+
+function muatRekap(){
+  var nama = $("rkSiswa").value, bulan = $("rkBulan").value;
+  if(!nama || !bulan){ say($("rkMsg"),"Pilih siswa dan bulan.","err"); return; }
+  say($("rkMsg"),"Memuat...","info");
+  api("getRekap", { token:S.token, nama:nama, bulan:bulan })
+    .then(function(r){
+      if(r.status !== "success"){
+        if(String(r.message).indexOf("Sesi habis") >= 0){ logout(r.message); return; }
+        say($("rkMsg"), r.message, "err"); return;
+      }
+      say($("rkMsg"),"","");
+      var h = r.hitung;
+      $("rkRingkas").textContent = "Hadir " + h.Hadir + "  |  Izin " + h.Izin +
+                                   "  |  Sakit " + h.Sakit + "  |  Alpa " + h.Alpa;
+      var box = $("rkList"); box.innerHTML = "";
+      if(!r.list.length){ box.textContent = "Belum ada catatan absen di bulan ini."; return; }
+      r.list.forEach(function(x){
+        var row = document.createElement("div");
+        row.className = "siswa";
+        var a = document.createElement("div"); a.className = "nm"; a.textContent = x.tanggal;
+        var b = document.createElement("div"); b.textContent = x.status + " (" + x.jam + ")";
+        row.appendChild(a); row.appendChild(b);
+        box.appendChild(row);
+      });
+    })
+    .catch(function(e){ say($("rkMsg"), galat(e), "err"); });
 }
 
 // ==========================================
