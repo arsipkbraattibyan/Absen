@@ -162,7 +162,7 @@ function initAudio(){
 }
 
 // bunyi "tit-tit" sangat nyaring: dua gelombang ditumpuk + penguat + kompresor
-function tit(){
+function titSintesis(){
   try{
     if(!audioCtx) return;
     if(audioCtx.state === "suspended") audioCtx.resume();
@@ -200,8 +200,28 @@ function tit(){
   }catch(e){}
 }
 
-function unlockSuara(){
+// bunyi dari file mp3 (bunyi.mp3 di folder yang sama dengan index.html)
+var audioTit = new Audio("bunyi.mp3");
+audioTit.preload = "auto";
+audioTit.volume = 1.0;
+
+function tit(){
+  try{
+    audioTit.currentTime = 0;
+    var p = audioTit.play();
+    if(p && p.catch) p.catch(function(){ titSintesis(); });
+  }catch(e){ titSintesis(); }
+}
+ function unlockSuara(){
   initAudio();
+  try{
+    audioTit.muted = true;
+    var p = audioTit.play();
+    if(p && p.then){
+      p.then(function(){ audioTit.pause(); audioTit.currentTime = 0; audioTit.muted = false; })
+       .catch(function(){ audioTit.muted = false; });
+    }
+  }catch(e){}
   if(!("speechSynthesis" in window)) return;
   var u = new SpeechSynthesisUtterance(" ");
   u.volume = 0;
