@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Absensi KB RA Attibyan</title>
+<title>Absensi Online KB RA Attibyan</title>
+   .judul{text-align:center;margin-bottom:18px}
+  .judul .atas{font-size:22px;font-weight:bold;color:#2196F3;margin:0}
+  .judul .bawah{font-size:16px;color:#555;margin:4px 0 0}
+  .judul hr{border:0;border-top:2px solid #e3f2fd;margin:14px 0 0}
 <style>
   *{box-sizing:border-box}
   body{margin:0;font-family:Arial,sans-serif;background:#f5f5f5;padding:16px}
@@ -38,7 +42,12 @@
 
   <!-- LOGIN -->
   <div id="vLogin" class="card">
-    <h2 style="text-align:center">Login Guru</h2>
+        <div class="judul">
+      <p class="atas">Absensi Online</p>
+      <p class="bawah">KB RA At Tibyan</p>
+      <hr>
+    </div>
+    <h3 style="text-align:center;margin-bottom:14px">Login Guru</h3>
     <input type="text" id="user" placeholder="Username" autocomplete="username">
     <input type="password" id="pass" placeholder="Password" autocomplete="current-password">
     <button id="btnLogin" onclick="doLogin()">LOGIN</button>
