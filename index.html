@@ -204,6 +204,7 @@ function titSintesis(){
 var audioTit = new Audio("bunyi.mp3");
 audioTit.preload = "auto";
 audioTit.volume = 1.0;
+ var JEDA_SUARA = 700;   // jeda (milidetik) antara bunyi tit dan ucapan nama. 1000 = 1 detik
 
 function tit(){
   try{
@@ -597,17 +598,19 @@ function setLokal(nama, st){
 function kirimHadir(nama){
   tit();
 
-  // sudah tercatat hari ini? langsung beri tahu, tidak perlu ke server
+  // sudah tercatat hari ini? langsung beri tahu setelah jeda, tidak perlu ke server
   var sdh = "";
   S.siswa.forEach(function(s){ if(s.nama === nama && s.status) sdh = s.status; });
   if(sdh){
     logScan("ℹ️ " + nama + " sudah tercatat " + sdh.toLowerCase() + " hari ini");
-    bicaraAntri(nama + " sudah tercatat " + sdh.toLowerCase() + " hari ini.");
+    setTimeout(function(){
+      bicaraAntri(nama + " sudah tercatat " + sdh.toLowerCase() + " hari ini.");
+    }, JEDA_SUARA);
     return;
   }
 
-  // ucapkan sekarang juga, simpan ke server di belakang
-  bicaraAntri(nama + " hadir.");
+  // ucapkan setelah jeda, simpan ke server di belakang
+  setTimeout(function(){ bicaraAntri(nama + " hadir."); }, JEDA_SUARA);
 
   api("simpanAbsen", { token:S.token, records:[{ nama:nama, status:"Hadir" }], skipJikaAda:true })
     .then(function(r){
@@ -629,6 +632,12 @@ function kirimHadir(nama){
         bicaraAntri("Gagal menyimpan absen " + nama + ".");
       }
     })
+    .catch(function(e){
+      S.selesai[nama] = false; S.hitung[nama] = 0;
+      say($("camMsg"), galat(e), "err");
+      bicaraAntri("Gagal menyimpan absen " + nama + ".");
+    });
+}
     .catch(function(e){
       S.selesai[nama] = false; S.hitung[nama] = 0;
       say($("camMsg"), galat(e), "err");
